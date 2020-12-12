@@ -1,0 +1,21 @@
+version: "3"
+services:
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    image: valuation-tool-api:latest
+    ports:
+      - "5000:5000"
+    networks:
+      valuation-tool:
+        aliases: 
+          - api
+    restart: on-failure
+    volumes:
+      - ./api:/export/api
+
+networks:
+  valuation-tool:
+    driver: bridge
