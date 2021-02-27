@@ -20,7 +20,10 @@
     </div>
     <div class="row">
         <div id="search_container" class="col">
-            <p>TODO</p>
+            <p>Stock data is provided by <a href="https://www.alphavantage.co/" target="_blank">Alpha Avantage</a> 
+                under their free stock API service. This free service is limited to 5 API requests per minute and 
+                500 requests per day.
+            </p>
             <label for="search_symbol">Enter a stock symbol</label>
             <input id="search_symbol" type="text">
             <button id="submit_add_stock" type="button" class="btn btn-primary">Add Stock</button>
@@ -36,6 +39,7 @@
         <table id="stocks-table">
             <thead>
               <tr>
+                <th data-field="operate" data-sortable="false" data-formatter="operateFormatter" data-events="operateEvents">Actions</th>
                 <th data-field="symbol" data-sortable="true">Symbol</th>
                 <th data-field="pe_ratio" data-sortable="true">Current PE</th>
                 <th data-field="eps" data-sortable="true">Current EPS</th>

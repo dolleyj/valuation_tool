@@ -1,3 +1,6 @@
+// Global stocks-table jQuery object
+var $stocksTable = $("#stocks-table");
+
 $( function () {
     console.log("index.js loaded!");
     load_stocks();
@@ -21,14 +24,61 @@ $( function () {
 
 });
 
-// Global stocks-table jQuery object
-var $stocksTable = $("#stocks-table");
+window.operateEvents = {
+    'click .refresh': function (e, value, row, index) {
+        // Refresh a stock's data
+        // alert('You click like action, row: ' + JSON.stringify(row))
+        console.log("Refreshing row: ", row);
+        // TODO - https://examples.bootstrap-table.com/index.html#methods/update-row.html
+
+    },
+    'click .remove': function (e, value, row, index) {
+        // Remove a stock from the database and table
+        var response = deleteStockFromTable(row.symbol);
+        response.then(function(data){
+            if (data.success) {
+                $stocksTable.bootstrapTable('remove', {
+                    field: 'symbol',
+                    values: [row.symbol]
+                });
+            } else {
+                //TODO - handle this with better style
+                alert("Unable to delete stock from database.");
+            }
+        });
+        
+    }
+}
+
+// BootstrapTable function
+function operateFormatter(value, row, index) {
+    /* Returns the buttons/icons for row events
+    */
+    return [
+      '<a class="refresh" href="javascript:void(0)" title="Refresh">',
+      '<i class="fa fa-refresh">R</i>',
+      '</a>  ',
+      '<a class="remove" href="javascript:void(0)" title="Remove">',
+      '<i class="fa fa-trash">T</i>',
+      '</a>'
+    ].join('')
+}
 
 
 function addStockToTable(data) {
-    // Adds new row to stocks-table and auto-scrolls to bottom
+    /* Adds new row to stocks-table and auto-scrolls to bottom
+    */
     $stocksTable.bootstrapTable('append', data);
     $stocksTable.bootstrapTable('scrollTo', 'bottom');
+}
+
+function deleteStockFromTable(stock_sym) {
+    /* Deletes a stock from the database. Returns true if successful, otherwise false
+    */
+    console.log("Inside deleteStockFromTable");
+    return $.get("./api/delete_stock", {"symbol": stock_sym}, function(data) {
+        return data;
+    });
 }
 
 function get_stock_data(stock_sym) {
@@ -54,25 +104,18 @@ function load_stocks() {
         console.log("sqlite data: ", data);
 
         // Build the table from stored stocks
-        // var tableHTML = buildTable(data['table_headers'], data['stocks']);
-        // $("#stock_table_container").html(tableHTML);
-
-
-
-        // var table = $("#stocks-table");
         buildTableBody($stocksTable, data['stocks']);
     });
 }
 
 function buildTableHeaders($element, headers) {
-
+    // TODO?
 }
 
 function buildTableBody($element, data) {
     console.log("Inside buildTableBody");
     // Initialize Bootstrap Table
     $element.bootstrapTable({data:data});
-
 }
 
 // function buildTable(table_headers, data){

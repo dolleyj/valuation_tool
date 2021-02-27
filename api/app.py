@@ -18,6 +18,17 @@ def hello_world():
     return render_template('index.html')
 
 
+@app.route('/api/delete_stock')
+def delete_stock():
+    symbol = request.args.get("symbol")
+    print("Inside delete_stock! symbol: ", symbol)
+
+    success = db_utils.delete_stock(symbol)
+
+    data = {"success": success}
+    return make_response(jsonify(data))
+
+
 @app.route('/api/get_stock_info')
 def get_stock_info():
     symbol = request.args.get("symbol")
@@ -30,6 +41,7 @@ def get_stock_info():
         save_successful = db_utils.save_to_db(stock_data)
         print("Stock saved to database: ", save_successful)
 
+    # TODO - Not currently being used. headers are currently hardcorded in index.html
     table_headers = [
         {"human_readable": "Symbol", "name": "symbol"},
         # {"human_readable": "Name", "name": "name"},
@@ -64,6 +76,7 @@ def get_stored_stocks():
     stocks = db_utils.get_all_stocks()
     print(stocks)
 
+    # TODO - Not currently being used. headers are currently hardcorded in index.html
     table_headers = [
         {"human_readable": "Symbol", "name": "symbol"},
         # {"human_readable": "Name", "name": "name"},

@@ -12,6 +12,33 @@ def convert_dict_to_dataframe(dic):
     # return pd.DataFrame(dic)
 
 
+def delete_stock(symbol):
+    """Delete a stock from the stocks table
+    """
+    success = False
+    try:
+        conn = sql.connect('data/valuation_tool.db')
+        cursor = conn.cursor()
+
+        stmt = """
+            DELETE FROM stocks
+            WHERE symbol = :symbol 
+        """
+        cursor.execute(stmt, {"symbol": symbol})
+        conn.commit()
+        cursor.close()
+
+        print("Stock deleted successfully: {}", symbol)
+        success = True
+    except sql.Error as error:
+        print("Failed to delete record from sqlite table", error)
+    finally:
+        if conn:
+            conn.close()
+
+    return success
+
+
 def get_all_stocks():
     conn = sql.connect('data/valuation_tool.db')
 
@@ -23,12 +50,6 @@ def get_all_stocks():
     print(df)
 
     return json.loads(df.to_json(orient='records'))
-
-
-# TODO - Delete a stock from the stocks table
-def remove_stock_from_db(stock):
-    pass
-
 
 
 def save_to_db(stock_data):
