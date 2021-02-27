@@ -6,6 +6,9 @@
     <title>Valuation Tool - Home</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
 
+    <!-- TODO get local copy of this -->
+    <link href="https://unpkg.com/bootstrap-table@1.18.2/dist/bootstrap-table.min.css" rel="stylesheet">
+
 </head>
 <body>
 
@@ -26,8 +29,31 @@
 
     <!-- TODO: convert table to bootstrap-table library: -->
     <!-- https://bootstrap-table.com/docs/getting-started/introduction/ -->
-    <div class="row">
+    <!-- <div class="row">
         <div id="stock_table_container" class="table-responsive"></div>
+    </div> -->
+    <div class="row">
+        <table id="stocks-table">
+            <thead>
+              <tr>
+                <th data-field="symbol" data-sortable="true">Symbol</th>
+                <th data-field="pe_ratio" data-sortable="true">Current PE</th>
+                <th data-field="eps" data-sortable="true">Current EPS</th>
+                <th data-field="peg_ratio" data-sortable="true">Current PEG</th>
+                <th data-field="historical_peratio" data-sortable="true">Historical PE</th>
+                <th data-field="analyst_target_price" data-sortable="true">Analyst Target Price</th>
+                <th data-field="fair_value_from_historical_pe_ratio" data-sortable="true">FV - Historical PE</th>
+                <th data-field="fair_value_from_historical_pe_ratio_current_eps" data-sortable="true">FV - Historical PE & current EPS</th>
+                <th data-field="fair_value_from_fwd_pe_ratio_analyst_target_price" data-sortable="true">FV - Fwd PE & Target Price</th>
+                <th data-field="fair_value_from_equity_value" data-sortable="true">FV - Equity Value</th>
+                <th data-field="fair_value_from_dividend_yield" data-sortable="true">FV - Dividend Yield</th>
+                <th data-field="1yr_paay" data-sortable="true">1 Yr PAAY</th>
+                <th data-field="5yr_paay" data-sortable="true">5 Yr PAAY</th>
+                <th data-field="forward_annual_dividend_yield" data-sortable="true">Dividend Yield</th>
+                <th data-field="forward_annual_dividend_rate" data-sortable="true">Dividend Rate</th>
+              </tr>
+            </thead>
+          </table>
     </div>
 
 
@@ -35,6 +61,10 @@
 </div>
 <script src="{{ url_for('static', filename='js/jquery-3.5.1.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
+
+<!-- TODO get local copy of this -->
+<script src="https://unpkg.com/bootstrap-table@1.18.2/dist/bootstrap-table.min.js"></script>
+
 <script src="{{ url_for('static', filename='js/index.js') }}"></script>
 </body>
 </html>

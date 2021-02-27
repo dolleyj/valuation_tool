@@ -43,7 +43,7 @@ def save_to_db(stock_data):
         df.to_sql('stocks', conn, if_exists='append')
         success = True
 
-    except Error as e:
+    except Exception as e:
         print("Unable to save stock data to database: \n")
         print(e)
 

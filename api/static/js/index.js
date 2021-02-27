@@ -1,5 +1,4 @@
 $( function () {
-    
     console.log("index.js loaded!");
     load_stocks();
 
@@ -12,18 +11,25 @@ $( function () {
         response.then(function(data){
             console.log(stock_sym, ': ', data);
 
-            // Add stock to table as last row
-            var rowHTML = buildTableRow(data['table_headers'], data['stock']);
-            $(".table-last-row").removeClass("table-last-row").after(rowHTML);
+            // // Add stock to table as last row
+            // var rowHTML = buildTableRow(data['table_headers'], data['stock']);
+            // $(".table-last-row").removeClass("table-last-row").after(rowHTML);
 
-
+            addStockToTable(data['stock']);
         });
     });
 
 });
 
+// Global stocks-table jQuery object
+var $stocksTable = $("#stocks-table");
 
 
+function addStockToTable(data) {
+    // Adds new row to stocks-table and auto-scrolls to bottom
+    $stocksTable.bootstrapTable('append', data);
+    $stocksTable.bootstrapTable('scrollTo', 'bottom');
+}
 
 function get_stock_data(stock_sym) {
     console.log("Inside get_stock_data");
@@ -45,47 +51,64 @@ function load_stocks() {
     console.log("loading saved stocks...");
     var response = get_stored_stocks();
     response.then(function(data){
+        console.log("sqlite data: ", data);
 
         // Build the table from stored stocks
-        var tableHTML = buildTable(data['table_headers'], data['stocks']);
-        $("#stock_table_container").html(tableHTML);
+        // var tableHTML = buildTable(data['table_headers'], data['stocks']);
+        // $("#stock_table_container").html(tableHTML);
+
+
+
+        // var table = $("#stocks-table");
+        buildTableBody($stocksTable, data['stocks']);
     });
 }
 
-function buildTable(table_headers, data){
-    //TODO Build the table on page onload. Uses STORED data (sqlite3)?
-    var tableHTML = "<table class='table table-striped'><thead><tr>";
+function buildTableHeaders($element, headers) {
 
-    // Build table headers
-    table_headers.forEach(item => {
-        tableHTML += "<th>" + item['human_readable'] + "</th>";
-    });
-    tableHTML += "</tr></thead><tbody>";
+}
+
+function buildTableBody($element, data) {
+    console.log("Inside buildTableBody");
+    // Initialize Bootstrap Table
+    $element.bootstrapTable({data:data});
+
+}
+
+// function buildTable(table_headers, data){
+//     //TODO Build the table on page onload. Uses STORED data (sqlite3)?
+//     var tableHTML = "<table class='table table-striped'><thead><tr>";
+
+//     // Build table headers
+//     table_headers.forEach(item => {
+//         tableHTML += "<th>" + item['human_readable'] + "</th>";
+//     });
+//     tableHTML += "</tr></thead><tbody>";
     
-    // Build data rows
-    data.forEach((stock, idx, _stocks) => {
-        if (idx === _stocks.length - 1) {
-            tableHTML += "<tr class='table-last-row'>";
-        } else {
-            tableHTML += "<tr>";
-        }
-        table_headers.forEach((header) => {
-            tableHTML += "<td>" + stock[ header['name'] ] + "</td>";
-        });
-        tableHTML += "</tr>";
-    });
-    tableHTML += "</tbody></table>";
+//     // Build data rows
+//     data.forEach((stock, idx, _stocks) => {
+//         if (idx === _stocks.length - 1) {
+//             tableHTML += "<tr class='table-last-row'>";
+//         } else {
+//             tableHTML += "<tr>";
+//         }
+//         table_headers.forEach((header) => {
+//             tableHTML += "<td>" + stock[ header['name'] ] + "</td>";
+//         });
+//         tableHTML += "</tr>";
+//     });
+//     tableHTML += "</tbody></table>";
     
-    return tableHTML;    
-}
+//     return tableHTML;    
+// }
 
-function buildTableRow(table_headers, stock_data) {
-    var rowHTML = "<tr class='table-last-row'>"; 
+// function buildTableRow(table_headers, stock_data) {
+//     var rowHTML = "<tr class='table-last-row'>"; 
 
-    table_headers.forEach((header) => {
-        rowHTML += "<td>" + stock_data[ header['name'] ] + "</td>";
-    });
-    rowHTML += "</tr>";
+//     table_headers.forEach((header) => {
+//         rowHTML += "<td>" + stock_data[ header['name'] ] + "</td>";
+//     });
+//     rowHTML += "</tr>";
 
-    return rowHTML;
-}
+//     return rowHTML;
+// }
