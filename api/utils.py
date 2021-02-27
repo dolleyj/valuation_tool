@@ -1,7 +1,41 @@
 import json
 import requests
-from conf import av_api_key, av_url
+from conf import av_api_key, av_url, overview_data_fields
 import pandas as pd
+
+
+
+def convert_from_camel_to_snake_case(my_str):
+  """Camel case to joint-lower\n
+  Source: https://codereview.stackexchange.com/a/185974
+  """
+
+  r = my_str[0].lower()
+  for i, letter in enumerate(my_str[1:], 1):
+    if letter.isupper():
+      if my_str[i-1].islower() or (i != len(my_str)-1 and my_str[i+1].islower()):
+        r += '_'
+    r += letter.lower()
+  return r
+
+def convert_values_to_float(df):
+    # Converts stringified numbers to floats. Does not forcibly convert non-number values
+    columns = df.columns.values.tolist()
+    for col in columns:
+        if 'date' in col:
+            #skip Dividend and Ex-Dividend date columns
+            continue
+        df[col] = pd.to_numeric(df[col], errors='ignore')
+
+    return df
+
+def round_value(value):
+    # Tries to round a given value to 2 decimal places, will return the initial value if attempt raises error
+    decimal_places = 2
+    try: 
+        return round(value, decimal_places)
+    except:
+        return value
 
 
 def get_from_av(sym, query_type):
@@ -12,21 +46,25 @@ def get_from_av(sym, query_type):
     }).json()
 
 def get_stock_data(sym):
-    '''retrieve data from Alpha Vantage: OVERVIEW, BALANCE_SHEET, TIME_SERIES_MONTHLY_ADJUSTED'''
+    '''retrieve data from Alpha Vantage: OVERVIEW, BALANCE_SHEET, EARNINGS, TIME_SERIES_MONTHLY_ADJUSTED'''
     data = {}
     query_types = []
     data['overview'] = get_from_av(sym, 'OVERVIEW')
     data['income'] = get_from_av(sym, 'INCOME_STATEMENT')['annualReports']
     data['balance'] = get_from_av(sym, 'BALANCE_SHEET')['annualReports']
+    data['earnings'] = get_from_av(sym, 'EARNINGS')['annualEarnings']
     data['monthly_quotes'] = get_from_av(sym, 'TIME_SERIES_MONTHLY_ADJUSTED')['Monthly Adjusted Time Series']
     # return data
 
     overview_data = data['overview']
-    overview_data['fair_values'] = {} # NOTE: HISTORICAL FAIR VALUES WILL BE STORED HERE
+    # overview_data['fair_values'] = {} # NOTE: HISTORICAL FAIR VALUES WILL BE STORED HERE
     historical_data = restructure_data(data)
 
     # Load data into pandas dataframe 
     df = pd.read_json(json.dumps(historical_data), orient="index", )
+
+    # Convert stringified numbers to floats to future calculations
+    df = convert_values_to_float(df)
 
     # Drop Years that are missing data 
     # Balance sheets and Income Statements only give 5 yrs data compared to Monthly Quote data
@@ -34,49 +72,52 @@ def get_stock_data(sym):
     df = df.replace(["None"], float(0)) #replace all 'None' strings with zeros (0)
     # df
 
-    # Calculate EPS for each year
-    # TODO: Need to account for 'None' in preferredStockTotalEquity
-    # df["eps"] = round( (df['netIncome'] - df['preferredStockTotalEquity']) / float(df['commonStockSharesOutstanding']), 2)
-    df["eps"] = round(df['netIncome'] / df['commonStockSharesOutstanding'], 2)
 
     # Calculate each yr's PE Ratio and the historical average
-    df['peRatio'] = round(df['average_price'] / df['eps'], 2)
-    pe_ratios = list(pd.array(df['peRatio']))
-    overview_data['historical_peratio'] = round(sum(pe_ratios) / len(pe_ratios), 2)
+    # df['peRatio'] = round(df['average_price'] / df['eps'], 2)
+    df['peRatio'] = round(df['average_price'] / df['reported_eps'], 2)
+    # pe_ratios = list(pd.array(df['peRatio']))
+    # overview_data['historical_peratio'] = round(sum(pe_ratios) / len(pe_ratios), 2)
+    overview_data['historical_peratio'] = round( df['peRatio'].mean() , 2)
     print("Average Historical PE Ratio: ", overview_data['historical_peratio'])
 
     # Calculate average historical price from historical_peratio
-    eps_array = list(pd.array(df['eps']))
-    pe_ratio_fair_value = overview_data['historical_peratio'] * round(sum(eps_array) / len(eps_array), 2)
-    overview_data['fair_values']['pe_ratio'] = pe_ratio_fair_value
+    pe_ratio_fair_value = round(overview_data['historical_peratio'] * df['reported_eps'].mean(), 2)
+    overview_data['fair_value_from_historical_pe_ratio'] = pe_ratio_fair_value
 
-    print("\n----- Not sure about these --------")
-    print("Current EPS: ", overview_data['EPS'])
-    print("Current PERatios: ", overview_data['PERatio'])
-    print("Fair Value from Historic PE * Current EPS: ", overview_data['historical_peratio'] * float(overview_data['EPS']))
-    print("Current PE * EPS = ", float(overview_data['PERatio']) * float(overview_data['EPS']))
-    print("Forward PE * EPS = ", float(overview_data['ForwardPE']) * float(overview_data['EPS']))
-    print("-----------------------------------")
-    print("\nStock Price from historical PE Ratio: ", overview_data['fair_values']['pe_ratio'])
+    #TODO - POTENTIAL PROBLEM using this EPS. Could not be a complete year's EPS, so the calculated FV would be inappropriately lower
+    overview_data['fair_value_from_historical_pe_ratio_current_eps'] = round(overview_data['historical_peratio'] * float(overview_data['EPS']), 2)
+
+    ## IMPORTANT! This is closest to Nick Ward's FV: 
+    ##    First calculate the Estimated EPS using the Analyst Target Price & Forward PE
+    ##    Next, use the historical avg PE Ratio and & Estimated EPS to calculate the Fair Value
+    fwd_eps = round(float(overview_data['AnalystTargetPrice']) / float(overview_data['ForwardPE']), 2)
+    overview_data['fair_value_from_fwd_pe_ratio_analyst_target_price'] = round(overview_data['historical_peratio'] * fwd_eps, 2)
+
 
     # Calculate Average Historical Yield
     # Price = Current annual dividend / yield I want to buy at (Historical Average is this case)
-    overview_data['fair_values']['dividend_yield'] = float(overview_data['DividendPerShare']) /  df['dividend_yield'].mean()
-    print("\nStock Price from historical Dividend Yield: ", overview_data['fair_values']['dividend_yield'] )
+    overview_data['fair_value_from_dividend_yield'] = float(overview_data['DividendPerShare']) /  df['dividend_yield'].mean()
+    print("\nStock Price from historical Dividend Yield: ", overview_data['fair_value_from_dividend_yield'] )
 
     # PAAY - Percent Above Average Yield (+ undervalued, - overvalued)
     # PAAY = ((Current Yield - Average Yield) / Average Yield) * 100
-    print(df['dividend_yield'][:1])
-    print("Current Yield: ", overview_data['DividendYield'])
-    print("5yr Average Yield: ", df['dividend_yield'][:4].mean())
     paay_long_term = ( float(overview_data['DividendYield']) - df['dividend_yield'][:4].mean() ) / df['dividend_yield'][:4].mean() * 100
     overview_data["5yr_paay"] = round(paay_long_term, 2)
 
-    print("1yr Average Yield: ", df['dividend_yield'][:1].mean())
     paay_short_term = ( float(overview_data['DividendYield']) - df['dividend_yield'][:1].mean() ) / df['dividend_yield'][:1].mean() * 100
     overview_data["1yr_paay"] = round(paay_short_term, 2)
-    print("5yr PAAY: ", overview_data['5yr_paay'])
-    print("1yr PAAY: ", overview_data['1yr_paay'])
+
+    # Calculate ROC % (historical - 5yrs ?)
+    # ROC % = EBIT / net working capital + net fixed assets
+    #       net working capital = balance.totalCurrentAssets - balance.totalCurrentLiabilities
+    #       net fixed assets = balance.totalNonCurrentAssets - balance.totalNonCurrentLiabilities
+
+    overview_data['roc'] = round((df['ebit'] / ((df['totalCurrentAssets'] - df['totalCurrentLiabilities']) + (df['totalNonCurrentAssets'] - df['totalNonCurrentLiabilities']))).mean() * 100, 2)
+    print("\n\nROC: ", overview_data['roc'])
+
+    # TODO - calculate historical PEG (price / earnings growth ). Will use this for ROC / PEG calculation
+
 
 
     # Equity value = Market Capitialization = stock price * outstanding shares
@@ -93,8 +134,9 @@ def get_stock_data(sym):
 
 
     # Historical price = Equity Value / Outstanding Shares
-    overview_data['fair_values']['equity_value'] = (df['equity_value'] / df['commonStockSharesOutstanding']).mean()
-    print("\nStock Price from historical Equity Value (from enterprise value): ", overview_data['fair_values']['equity_value'], " # Seems too low(!?)")
+    overview_data['fair_value_from_equity_value'] = (df['equity_value'] / df['commonStockSharesOutstanding']).mean()
+    print("\nStock Price from historical Equity Value (from enterprise value): ", overview_data['fair_value_from_equity_value'], " # Seems too low(!?)")
+
 
     # Calculate Historical Fair Value (11 years) from:
     # PE Ratio (my addition) - DONE
@@ -111,8 +153,6 @@ def get_stock_data(sym):
     print("Historical EBIT: ", df['ebit'].mean()/ df['commonStockSharesOutstanding'].mean())
     print("EBIT / Outstanding shares: ", (df['ebit'] / df['commonStockSharesOutstanding']).mean() )
     print("EBIT/share * Current PE: ", (df['ebit'] / df['commonStockSharesOutstanding']).mean() * float(overview_data['PERatio']) )
-
-    print("\n\nFair Values: ", overview_data['fair_values'])
 
 
     # # Calculate share price from Operating Cash Flow
@@ -132,7 +172,13 @@ def get_stock_data(sym):
 
     # #TODO: Calculate share price from EBITDA for past 11-yrs
 
-    return overview_data
+
+    # TODO: Do I want to avg the fair values? 
+    # Calculate Average Fair Value
+    # overview_data['fair_value_average'] = get_avg_fair_value(overview_data)
+
+
+    return reduce_overview_data(overview_data)
 
 
 def format_monthly_quote(quote):
@@ -188,6 +234,33 @@ def restructure_data(data):
             financials = {**balance, **income}
             final_data[current_year].update(financials)
 
+    # Add reported EPS for each year to final data
+    for earnings in data['earnings']:
+        current_year = earnings['fiscalDateEnding'].split("-")[0]
+
+        if current_year in final_data.keys():
+            final_data[current_year]["reported_eps"] = earnings['reportedEPS']
+
 
     return final_data
+
+
+def reduce_overview_data(data):
+    """ Downscales the returned data object to fields specified in conf.py and the fair_value fields
+    """
+    final_data = {}
+    fields_to_keep = overview_data_fields.split(",")
+    for field in fields_to_keep:
+        formatted_field = convert_from_camel_to_snake_case(field)
+        final_data[formatted_field] = round_value(data[field])
+
+    for key in data.keys():
+        if key.startswith("fair_value") or key.startswith("historical") or key.endswith("paay"):
+            final_data[key] = round_value(data[key])
+
+    if 'roc' in data:
+        final_data['roc'] = round_value(data['roc'])
+
+    return final_data
+
 
